@@ -1,0 +1,17 @@
+# Локальные секреты и runtime-данные
+.env
+db/
+cert/
+*.db
+
+# Claude Code local settings
+.claude/
+
+# macOS
+.DS_Store
+
+# Временные файлы
+*.swp
+*.tmp
+cookies.txt
+.cookies.*.txt
