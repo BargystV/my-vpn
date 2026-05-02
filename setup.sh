@@ -20,7 +20,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # 2. Проверка/установка Docker
-echo "[1/8] Проверка Docker..."
+echo "[1/9] Проверка Docker..."
 if ! command -v docker >/dev/null 2>&1; then
     echo "Docker не найден — устанавливаю..."
     curl -fsSL https://get.docker.com | sh
@@ -29,12 +29,12 @@ else
 fi
 
 # 3. Установка вспомогательных пакетов
-echo "[2/8] Установка зависимостей (jq, qrencode, curl, ufw)..."
+echo "[2/9] Установка зависимостей (jq, qrencode, curl, ufw)..."
 apt-get update -qq
 apt-get install -y -qq jq qrencode curl ufw
 
 # 4. Генерация локальных секретов и .env (только если .env не существует)
-echo "[3/8] Генерация секретов..."
+echo "[3/9] Генерация секретов..."
 if [ -f "${SCRIPT_DIR}/.env" ]; then
     echo ".env уже существует — НЕ перезаписываю (идемпотентность)."
 else
@@ -77,12 +77,12 @@ fi
 load_env
 
 # 5. Запуск контейнера 3X-UI
-echo "[4/8] Запуск контейнера 3X-UI..."
+echo "[4/9] Запуск контейнера 3X-UI..."
 mkdir -p "${SCRIPT_DIR}/db" "${SCRIPT_DIR}/cert"
 docker compose up -d
 
 # 6. UFW: allow 8443/tcp (порт VLESS), панель 2053 не открывать
-echo "[5/8] Настройка файрвола..."
+echo "[5/9] Настройка файрвола..."
 # Базовые правила (если UFW ещё не настроен)
 ufw default deny incoming || true
 ufw default allow outgoing || true
@@ -93,7 +93,7 @@ echo "y" | ufw enable >/dev/null 2>&1 || true
 ufw status numbered
 
 # 7. Ждём готовности панели (проверяем оба пути: дефолтный / и кастомный из .env)
-echo "[6/8] Ожидание готовности панели..."
+echo "[6/9] Ожидание готовности панели..."
 PANEL_BASE_PATH_NORMALIZED="${XUI_WEB_BASE_PATH%/}/"
 for i in {1..60}; do
     if curl -fsS "http://127.0.0.1:${XUI_PANEL_PORT}/" >/dev/null 2>&1 \
@@ -109,7 +109,7 @@ for i in {1..60}; do
 done
 
 # 8. Конфигурация панели через CLI x-ui (надёжнее HTTP API: пишет напрямую в SQLite, идемпотентен)
-echo "[7/8] Настройка панели..."
+echo "[7/9] Настройка панели..."
 
 # Проверяем текущие настройки панели — если совпадают с .env, пропускаем reconfig + restart
 CURRENT_SETTINGS=$(docker exec 3xui /app/x-ui setting -show 2>/dev/null || true)
@@ -175,7 +175,7 @@ fi
 
 # 11. Если INBOUND_ID ещё пустой — создаём первый inbound
 if [ -z "${INBOUND_ID}" ]; then
-    echo "[8/8] Создание первого inbound (VLESS+Reality)..."
+    echo "[8/9] Создание первого inbound (VLESS+Reality)..."
 
     # Подготовка JSON для settings и streamSettings
     SETTINGS_JSON=$(jq -nc \
@@ -248,7 +248,34 @@ else
     echo "Inbound уже существует (ID=${INBOUND_ID}) — пропускаю."
 fi
 
-# 12. Финальный вывод
+# 12. Включение access log в xray (через xrayTemplateConfig в БД).
+#     Без этого xray по умолчанию не пишет access — у нас нет видимости подключений
+#     клиентов. С access log diagnose.sh показывает, кто, когда и куда подключался.
+echo "[9/9] Включение access log в xray-core..."
+EXISTING_TEMPLATE=$(sqlite3 "${SCRIPT_DIR}/db/x-ui.db" "SELECT value FROM settings WHERE key='xrayTemplateConfig';" 2>/dev/null || true)
+if [ -z "${EXISTING_TEMPLATE}" ]; then
+    # Берём текущий runtime-config (дефолт + наши inbounds), убираем VLESS-inbound
+    # (он добавится обратно из БД при regen) и подменяем log-секцию.
+    XRAY_TEMPLATE=$(docker exec 3xui cat /app/bin/config.json | jq -c '
+        .inbounds = [.inbounds[] | select(.tag == "api")]
+        | .log = {
+            access: "/var/log/xray-access.log",
+            error: "/var/log/xray-error.log",
+            loglevel: "warning",
+            dnsLog: false,
+            maskAddress: ""
+          }
+    ')
+    sqlite3 "${SCRIPT_DIR}/db/x-ui.db" \
+        "INSERT OR REPLACE INTO settings (key, value) VALUES ('xrayTemplateConfig', ${XRAY_TEMPLATE@Q});"
+    docker compose restart 3xui >/dev/null
+    sleep 3
+    echo "Access log включён: /var/log/xray-access.log (внутри контейнера)."
+else
+    echo "xrayTemplateConfig уже задан — пропускаю."
+fi
+
+# 13. Финальный вывод
 SERVER_IP=$(get_server_ip)
 VLESS_LINK=$(build_vless_link "${FIRST_CLIENT_UUID}" "${FIRST_CLIENT_NAME}")
 
@@ -273,6 +300,8 @@ echo "Управление пользователями:"
 echo "  ./add-user.sh <имя>"
 echo "  ./list-users.sh"
 echo "  ./remove-user.sh <имя>"
+echo ""
+echo "Диагностика при проблемах: ./diagnose.sh > diag.txt"
 echo ""
 echo "MTProxy на 443/tcp не затронут и продолжает работать."
 echo ""
