@@ -10,11 +10,11 @@ Self-hosted VLESS+Reality VPN deployment kit using the 3X-UI panel. Designed for
 
 ```
 Client (Hiddify / v2rayNG / V2Box)
-    │  TLS handshake mimics real HTTPS to www.microsoft.com
+    │  TLS handshake mimics real HTTPS to www.bing.com
     ▼
 VPS:8443/tcp (3X-UI / xray-core)
     │  VLESS + Reality + XTLS-Vision flow
-    └─► Real TLS handshake to www.microsoft.com:443, then xray decrypts payload and proxies traffic
+    └─► Real TLS handshake to www.bing.com:443, then xray decrypts payload and proxies traffic
 
 VPS:2053  ← closed in UFW, accessible only via SSH tunnel
     │  3X-UI web panel

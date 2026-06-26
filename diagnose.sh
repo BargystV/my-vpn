@@ -97,10 +97,10 @@ xui_pid=$(pgrep -fx '/app/x-ui' | head -1)
 
 section "REALITY FALLBACK PROBE (внутри хоста)"
 probe=$(echo | timeout 8 openssl s_client -connect 127.0.0.1:8443 \
-        -servername www.microsoft.com 2>/dev/null \
+        -servername www.bing.com 2>/dev/null \
         | openssl x509 -noout -subject 2>/dev/null)
-if echo "${probe}" | grep -q 'CN.*microsoft\.com'; then
-    echo "OK: VPS:8443 проксирует TLS на microsoft.com (Reality жив)"
+if echo "${probe}" | grep -q 'CN.*bing\.com'; then
+    echo "OK: VPS:8443 проксирует TLS на bing.com (Reality жив)"
 else
     echo "FAIL: Reality fallback не работает. xray, скорее всего, deadlocked — рестарт контейнера."
 fi

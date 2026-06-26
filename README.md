@@ -7,7 +7,7 @@ Self-hosted VLESS+Reality VPN на базе [3X-UI](https://github.com/mhsanaei/
 ## Что делает
 
 - Поднимает 3X-UI (Xray-core) в Docker на порту 8443/tcp с VLESS+Reality (XTLS-Vision)
-- Маскирует трафик под HTTPS к `www.microsoft.com` (меняется в `.env`)
+- Маскирует трафик под HTTPS к `www.bing.com` (меняется в `.env`)
 - Настраивает UFW (открывает только 22 и 8443; существующие правила не трогает)
 - Держит веб-панель 3X-UI закрытой — доступ только через SSH-туннель
 - Генерирует первого пользователя и выдаёт `vless://` ссылку + QR-код
@@ -96,7 +96,7 @@ scp root@<VPS_IP>:~/vpn/vpn-backup-*.tar.gz ~/Downloads/
 
 ## Безопасность
 
-- **Reality** — трафик неотличим от обычного HTTPS к реальному сайту (по умолчанию `www.microsoft.com`)
+- **Reality** — трафик неотличим от обычного HTTPS к реальному сайту (по умолчанию `www.bing.com`)
 - **Веб-панель закрыта в UFW** — снаружи порт `2053` недоступен
 - **Кастомный путь панели** (`/<32 hex>/`) — защита от случайного сканирования даже при открытом порте
 - **Пароль панели** — 32 случайных символа, в `.env` с `chmod 600`
@@ -123,7 +123,7 @@ docker compose logs -f 3xui          # логи панели и xray-core
 docker compose ps                    # контейнер живой?
 ss -tlnp | grep -E '8443|2053'       # порты слушаются?
 ufw status numbered                  # правила файрвола
-curl -sI https://www.microsoft.com   # маскировочный домен доступен с VPS?
+curl -sI https://www.bing.com   # маскировочный домен доступен с VPS?
 ./list-users.sh                      # активные клиенты
 ```
 
